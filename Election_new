@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.7;
+
+contract Election2022{
+
+    struct Candidate {
+        bool approved;
+        uint id;
+        string name;
+        address _address;
+        uint voteCount;
+        
+    }
+
+    // address public owner;
+    address ecadmin;
+    address ec;
+    uint256 public startTime;
+    uint256 public stopTime;
+
+    constructor( address _admin) {
+        ecadmin = _admin;
+    }
+
+    modifier ecOnly() {
+        require(msg.sender == address(ec),"EC only operation");
+        _;
+    }
+
+    modifier ecAdminOnly() {
+        require(msg.sender == ecadmin,"EC admin only operation");
+        _;
+    }
+
+    function setEC(address _ec) public ecAdminOnly {
+        ec = _ec;
+    }
+
+    mapping (uint=> Candidate) public candidates;
+
+    mapping (address=>bool) public voters;
+
+    uint public candidates_no;
+    // address payable Commission = payable(0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2);
+
+    function Apply(string memory name) public payable returns(string memory){
+
+        // require(Commission.transfer(1 ether));
+        // require(Candidate[msg.sender] == false, "Already Applyed");
+        require(msg.value == 0.1 ether,"Appropraite ether not next");
+        candidates_no++;
+        candidates[candidates_no] = Candidate(false,candidates_no,name,msg.sender,0);
+        return "Done";
+    }
+
+    function approveCandidiate(uint256 num) external {
+        require(candidates[num]._address != address(0x00), "Not registered" );
+        require(candidates[num].approved == false, "Already approved" );
+        candidates[num].approved = true;
+    }
+
+    function setStart(uint256 num) public ecOnly {
+        require(num > block.timestamp,"Start at later time" );
+        startTime = num;
+    }
+
+    function setStop(uint256 num) public ecOnly {
+        require(num > block.timestamp && num > startTime,"Stop at later time" );
+        stopTime = num;
+    }
+
+    event consolePrint( string, address);
+
+    function vote(uint _candidateId) public{
+        require(block.timestamp > startTime,"Election not started" );
+        require(block.timestamp <= stopTime,"Election over" );
+        require(voters[msg.sender] == false, "Already voted");
+        require(candidates[_candidateId]._address != address(0x00), "Not registered condidate" );
+        require(candidates[_candidateId].approved == true, "Dont vote not approved" );
+
+        voters[msg.sender] == true;
+        candidates[_candidateId].voteCount++;
+
+    }
+
+     function getResults() public view ecOnly returns (Candidate memory candidate) {
+        require(block.timestamp >= stopTime,"Election yet to finish" );
+        uint256 c;
+        uint256 max=0;
+        for( uint i =1; i<=candidates_no; i++) {
+            if ( candidates[i].voteCount > max ) {
+                max = candidates[i].voteCount;
+                c = i;
+            }
+        }
+
+        return candidates[c];
+    }
+}
+
+contract ElectionCommision{
+
+    Election2022 public Election;
+
+    constructor() {
+        
+        Election = new Election2022(msg.sender);
+    }
+
+    function approveCandidate(address election, uint256 id) public {
+        Election2022 e = Election2022(election);
+        e.approveCandidiate(id);
+    }
+}
+
+//problems
+
+// 1. one voter can vote only once
+// 2. I don't want to show approveCandidate in Election2022 contract. only showing in ElectionCommision contract
